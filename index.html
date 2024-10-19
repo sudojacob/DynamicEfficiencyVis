@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="style.css">
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/15.5.0/nouislider.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/15.5.0/nouislider.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation"></script>
+  <title>Dynamic Efficiency Visualizer</title>
+</head>
+<body>
+<h2>Dynamic Efficiency Visualizer</h2>
+<div class="chartdiv">
+  <canvas id="myChart" width="500px"></canvas>
+
+</div>
+<div class="slider-styled" id="slider"></div>
+
+<form class="controlPanel">
+  <p>MNB<sub>i</sub> =
+    <input id="eq_constant" type="text" style="width: 30px" placeholder="10"> -
+    <input id="eq_coeff" type="text" style="width: 30px" placeholder="0.5">Q<sub>i</sub>
+  </p>
+
+  <div class="controlPanelItem">
+    <label for="DiscountRate">Discount Rate: </label>
+    <input type="text" id="DiscountRate" placeholder="0.06" style="width: 30px;">
+  </div>
+  <div class="controlPanelItem">
+    <label for="Period2"># years from now: </label>
+    <input type="text" id="Period2" placeholder="5" style="width: 30px;">
+  </div>
+  <div class="controlPanelItem">
+    <label for="AvailableItems">Available Quantity: </label>
+    <input type="text" id="AvailableItems" placeholder="20" style="width: 30px;">
+  </div>
+
+  <button type="button" onclick="handleUpdate()">Update Chart</button>
+</form>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="datastuff.js"></script>
+<script>
+  const ctx = document.getElementById('myChart');
+  let sliderIndex = 10.0;
+  let numItems = 20;
+
+  let chart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: Array.from(Array(numItems + 1).keys()),
+      datasets: [{
+        label: '---',
+        data: [],
+        fill: false,
+        borderColor: 'blue',
+        tension: 0,
+        yAxisID: 'y1',
+        xAxisID: 'x1',
+      }, {
+        label: '---',
+        data: [],
+        fill: false,
+        borderColor: 'darkorange',
+        tension: 0,
+        yAxisID: 'y2',
+        xAxisID: 'x2',
+      }]
+    },
+    options: {
+      scales: {
+        x1: {
+          reverse: false,
+          min: 0,
+          max: 1,
+          stepSize: 1,
+        },
+        x2: {
+          reverse: true,
+          min: 0,
+          max: 1,
+          stepSize: 1,
+        },
+        y1: {
+          position: 'left',
+          beginAtZero: true,
+          min: 0,
+          max: 1
+        },
+        y2: {
+          position: 'right',
+          beginAtZero: true,
+          min: 0,
+          max: 1
+        }
+      },
+
+      responsive: true,
+      maintainAspectRatio: false,
+    }
+  });
+
+  function handleUpdate() {
+    numItems = parseInt(document.getElementById("AvailableItems").value);
+    let data0 = getDataArray(
+      numItems,
+      parseFloat(document.getElementById("eq_constant").value),
+      parseFloat(document.getElementById("eq_coeff").value)
+    );
+    let data1 = getDataArrayPV(
+      numItems,
+      parseFloat(document.getElementById("eq_constant").value),
+      parseFloat(document.getElementById("eq_coeff").value),
+      parseFloat(document.getElementById("DiscountRate").value),
+      parseInt(document.getElementById("Period2").value),
+    );
+    let intersectionPoint = getIntersectionPoint(
+      numItems,
+      parseFloat(document.getElementById("eq_constant").value),
+      parseFloat(document.getElementById("eq_coeff").value),
+      parseFloat(document.getElementById("DiscountRate").value),
+      parseInt(document.getElementById("Period2").value),
+    )
+    chart.data = {
+      labels: Array.from(Array(numItems + 1).keys()),
+      datasets: [{
+          label: 'PVMNB_0',
+          data: data0,
+          borderColor: 'blue',
+          tension: 0,
+          yAxisID: 'y1',
+          xAxisID: 'x1',
+          backgroundColor: "blue",
+          fill: false,
+
+        }, {
+          label: 'PVMNB_' + document.getElementById("Period2").value,
+          data: data1,
+          borderColor: 'darkorange',
+          tension: 0,
+          yAxisID: 'y2',
+          xAxisID: 'x2',
+          backgroundColor: "darkorange",
+          fill: false,
+      }]
+    }
+
+    chart.options = {
+      scales: {
+        x1: {
+          type: 'linear',
+          title: {
+            text: "Q now",
+            display: true,
+            align: "start",
+            padding: 5,
+          },
+          reverse: false,
+          min: 0,
+          max: numItems,
+          stepSize: 1,
+
+        },
+        x2: {
+          type: 'linear',
+          title: {
+            text: "Q " + document.getElementById("Period2").value + " years from now" +
+              "                                                                              " +
+              "                                 ",
+            display: true,
+            align: "center",
+            padding: 0,
+          },
+          grid: {
+            drawTicks: false,
+          },
+          reverse: true,
+          min: 0,
+          max: numItems,
+          stepSize: 1,
+        },
+        y1: {
+          title: {
+            display: true,
+            text: "PVMNB ($)"
+          },
+          pointLabels: {display: false},
+          position: 'left',
+          beginAtZero: true,
+          min: 0,
+          max:  Math.ceil(parseFloat(document.getElementById("eq_constant").value))
+        },
+        y2: {
+          title: {
+            display: true,
+            text: "PVMNB ($)",
+          },
+          position: 'right',
+          beginAtZero: true,
+          min: 0,
+          max: Math.ceil(parseFloat(document.getElementById("eq_constant").value))
+        }
+      },
+
+      pointLabel: true,
+
+      responsive: true,
+      maintainAspectRatio: false,
+      spanGaps: true,
+      elements: {
+        point:{
+          radius: 1
+        }
+      },
+      interaction: {
+        mode: 'y',
+        intersect: true,
+
+      },
+      hover: {
+        mode: 'y',
+        intersect: true,
+      },
+      annotation: {
+        annotations: [{
+          type: 'line',
+          mode: 'horizontal',
+          scaleID: 'y-axis-0',
+          value: 5,
+          borderColor: 'rgb(75, 192, 192)',
+          borderWidth: 4,
+          label: {
+            enabled: false,
+            content: 'Test label'
+          }
+        }]
+      }
+    }
+
+    chart.update()
+
+
+
+    let slider = document.getElementById('slider');
+    noUiSlider.create(slider, {
+      start: [numItems / 2],
+      range: {
+        'min': [0],
+        'max': [numItems]
+      },
+      step: 0,
+      tooltips: {
+        // tooltips are output only, so only a "to" is needed
+        to: function(numericValue) {
+          return numericValue.toFixed(1);
+        }
+      }
+    });
+    let inputNumber = document.getElementById('slider_value');
+
+    slider.noUiSlider.on('update', function (values, handle) {
+
+      var value = values[handle];
+
+      if (handle) {
+        inputNumber.value = value;
+      } else {
+        slider.value = Math.round(value);
+      }
+    });
+
+    slider.addEventListener('change', function () {
+      html5Slider.noUiSlider.set([this.value, null]);
+    });
+
+    inputNumber.addEventListener('change', function () {
+      html5Slider.noUiSlider.set([null, this.value]);
+    });
+  }
+
+
+
+</script>
+
+</body>
+</html>
